@@ -7,6 +7,7 @@ import re
 def scrape_track(url):
     console.print(f'{url}')
     logger.info(f'{url}')
+    song_url = url
     r = requests.get(url)
     if r.status_code == 200:
         s = BeautifulSoup(r.text, 'html.parser')
@@ -18,7 +19,35 @@ def scrape_track(url):
         l = len(t.split("\n"))
         console.print(f'{url} ({l} lyrics)', color=console.OKGREEN)
         logger.info(f'{url} ({l} lyrics)')
-        return t
+        a = re.search(r'genius://songs/([0-9]*)', s.find('meta', attrs = {'property': 'twitter:app:url:iphone'}).get('content')).group(1)
+        url = f'https://genius.com/api/songs/{a}'
+        r = requests.get(url)
+        if r.status_code == 200:
+            j = json.loads(r.text)
+            song_name = re.sub('\xa0', ' ', j['response']['song']['full_title'])
+            artist_names = j['response']['song']['artist_names']
+            artist_url = j['response']['song']['primary_artist']['url']
+            album_name = j['response']['song']['album']['name']
+            album_url = j['response']['song']['album']['url']
+            release_date_song = j['response']['song']['release_date']
+            release_date_album = f"{j['response']['song']['album']['release_date_components']['year']}-{str(j['response']['song']['album']['release_date_components']['month']).rjust(2, '0')}-{str(j['response']['song']['album']['release_date_components']['day']).rjust(2, '0')}"
+            console.print(f'{url} retrieved', color=console.OKGREEN)
+            logger.info(f'{url} retrieved')
+            return {
+                'song': song_name,
+                'song_url': song_url,
+                'artist': artist_names,
+                'artist_url': artist_url,
+                'album': album_name,
+                'album_url': album_url,
+                'release_date_song': release_date_song,
+                'release_date_album': release_date_album,
+                'lyrics': t
+            }
+        else:
+            console.print(f'{url} {r.status_code}', color=console.WARNING)
+            logger.warning(f'{url} {r.status_code}')
+            return None
     else:
         console.print(f'{url} {r.status_code}', color=console.WARNING)
         logger.warning(f'{url} {r.status_code}')
@@ -49,7 +78,6 @@ def scrape_artist(url):
     if r.status_code == 200:
         s = BeautifulSoup(r.text, 'html.parser')
         a = re.search(r'/artists/([0-9]*)', s.find('meta', attrs = {'name': 'newrelic-resource-path'}).get('content')).group(1)
-        # while True:
         l = []
         p = 1
         page_loop = True
@@ -78,11 +106,12 @@ def scrape_artist(url):
         return None
 
 def main():
-    albums = scrape_artist('https://genius.com/artists/Nane')
+    artist = 'https://genius.com/artists/Nane'
+    albums = scrape_artist(artist)
     for album in albums:
         tracks = scrape_album(album)
         for track in tracks:
-            track_lyrics = scrape_track(track)
+            scraped_track = scrape_track(track)
 
 if __name__ == '__main__':
 	main()
