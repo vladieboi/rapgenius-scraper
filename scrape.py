@@ -1,6 +1,7 @@
 from framework import console, logger
 from bs4 import BeautifulSoup
 import requests
+import json
 import re
 
 def scrape_track(url):
@@ -15,8 +16,8 @@ def scrape_track(url):
             _ = re.sub('<br>', '\n', _.get_text(separator="\n"))
             t += _
         l = len(t.split("\n"))
-        console.print(f'{url} ({l} lines)', color=console.OKGREEN)
-        logger.info(f'{url} ({l} lines)')
+        console.print(f'{url} ({l} lyrics)', color=console.OKGREEN)
+        logger.info(f'{url} ({l} lyrics)')
         return t
     else:
         console.print(f'{url} {r.status_code}', color=console.WARNING)
@@ -41,10 +42,47 @@ def scrape_album(url):
         logger.warning(f'{url} {r.status_code}')
         return None
 
+def scrape_artist(url):
+    console.print(f'{url}')
+    logger.info(f'{url}')
+    r = requests.get(url)
+    if r.status_code == 200:
+        s = BeautifulSoup(r.text, 'html.parser')
+        a = re.search(r'/artists/([0-9]*)', s.find('meta', attrs = {'name': 'newrelic-resource-path'}).get('content')).group(1)
+        # while True:
+        l = []
+        p = 1
+        page_loop = True
+        while page_loop == True:
+            url = f'https://genius.com/api/artists/{a}/albums?page={p}'
+            r = requests.get(url)
+            if r.status_code == 200:
+                j = json.loads(r.text)
+                for album in j['response']['albums']:
+                    l.append(album['url'])
+                if j['response']['next_page'] != None:
+                    p = j['response']['next_page']
+                else:
+                    page_loop = False
+                    url = re.sub(r'\?page=.*', '', url)
+                    console.print(f'{url} ({len(l)} albums)', color=console.OKGREEN)
+                    logger.info(f'{url} ({len(l)} albums)')
+                    return l
+            else:
+                console.print(f'{url} {r.status_code}', color=console.WARNING)
+                logger.warning(f'{url} {r.status_code}')
+                return None        
+    else:
+        console.print(f'{url} {r.status_code}', color=console.WARNING)
+        logger.warning(f'{url} {r.status_code}')
+        return None
+
 def main():
-    tracks = scrape_album('https://genius.com/albums/Nane/Avram')
-    for track in tracks:
-        track_lyrics = scrape_track(track)
+    albums = scrape_artist('https://genius.com/artists/Nane')
+    for album in albums:
+        tracks = scrape_album(album)
+        for track in tracks:
+            track_lyrics = scrape_track(track)
 
 if __name__ == '__main__':
 	main()
