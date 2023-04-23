@@ -3,10 +3,14 @@ from bs4 import BeautifulSoup
 import requests
 import json
 import re
+import os
+
+def checkPath(path):
+    isExist = os.path.exists(path)
+    if not isExist:
+        os.makedirs(path)
 
 def scrape_track(url):
-    console.print(f'{url}')
-    logger.info(f'{url}')
     song_url = url
     r = requests.get(url)
     if r.status_code == 200:
@@ -25,18 +29,20 @@ def scrape_track(url):
         if r.status_code == 200:
             j = json.loads(r.text)
             song_name = re.sub('\xa0', ' ', j['response']['song']['full_title'])
+            artist_name = j['response']['song']['primary_artist']['name']
             artist_names = j['response']['song']['artist_names']
             artist_url = j['response']['song']['primary_artist']['url']
             album_name = j['response']['song']['album']['name']
             album_url = j['response']['song']['album']['url']
             release_date_song = j['response']['song']['release_date']
             release_date_album = f"{j['response']['song']['album']['release_date_components']['year']}-{str(j['response']['song']['album']['release_date_components']['month']).rjust(2, '0')}-{str(j['response']['song']['album']['release_date_components']['day']).rjust(2, '0')}"
-            console.print(f'{url} retrieved', color=console.OKGREEN)
-            logger.info(f'{url} retrieved')
+            # console.print(f'{url} retrieved', color=console.OKGREEN)
+            # logger.info(f'{url} retrieved')
             return {
                 'song': song_name,
                 'song_url': song_url,
-                'artist': artist_names,
+                'artist': artist_name,
+                'artists': artist_names,
                 'artist_url': artist_url,
                 'album': album_name,
                 'album_url': album_url,
@@ -54,8 +60,6 @@ def scrape_track(url):
         return None
     
 def scrape_album(url):
-    console.print(f'{url}')
-    logger.info(f'{url}')
     r = requests.get(url)
     if r.status_code == 200:
         s = BeautifulSoup(r.text, 'html.parser')
@@ -72,8 +76,6 @@ def scrape_album(url):
         return None
 
 def scrape_artist(url):
-    console.print(f'{url}')
-    logger.info(f'{url}')
     r = requests.get(url)
     if r.status_code == 200:
         s = BeautifulSoup(r.text, 'html.parser')
@@ -112,6 +114,16 @@ def main():
         tracks = scrape_album(album)
         for track in tracks:
             scraped_track = scrape_track(track)
+            if scraped_track != None:
+                path = f'data'
+                checkPath(path)
+                path = f'data/{scraped_track["artist"]}'
+                checkPath(path)
+                path = f'data/{scraped_track["artist"]}/{scraped_track["album"]}'
+                checkPath(path)
+                path = f'data/{scraped_track["artist"]}/{scraped_track["album"]}/{scraped_track["song"]}.json'
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(scraped_track, f, ensure_ascii=False)
 
 if __name__ == '__main__':
 	main()
