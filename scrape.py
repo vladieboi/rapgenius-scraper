@@ -29,6 +29,27 @@ def scrape_track(url):
         if r.status_code == 200:
             j = json.loads(r.text)
             song_name = re.sub('\xa0', ' ', j['response']['song']['full_title'])
+            song_producers_list = j['response']['song']['producer_artists']
+            producers = []
+            for producer in song_producers_list:
+                producers.append({
+                    'name': producer['name'],
+                    'url': producer['url']
+                })
+            recording_location = j['response']['song']['recording_location']
+            custom_performances_list = j['response']['song']['custom_performances']
+            custom_performances = []
+            for performance in custom_performances_list:
+                for _ in range(len(performance['artists'])):
+                    custom_label = performance['label']
+                    custom_name = performance['artists'][_]['name']
+                    custom_url = performance['artists'][_]['url']
+                    custom_performances.append({
+                        'label': custom_label,
+                        'name': custom_name,
+                        'url':custom_url
+                    })
+
             artist_name = j['response']['song']['primary_artist']['name']
             artist_names = j['response']['song']['artist_names']
             artist_url = j['response']['song']['primary_artist']['url']
@@ -48,6 +69,9 @@ def scrape_track(url):
                 'album_url': album_url,
                 'release_date_song': release_date_song,
                 'release_date_album': release_date_album,
+                'recording_location': recording_location,
+                'producers': producers,
+                'credits': custom_performances,
                 'lyrics': t
             }
         else:
